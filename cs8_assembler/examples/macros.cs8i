@@ -1,0 +1,37 @@
+; Load
+.macro ld val, reg
+li \val
+tr %tmp, \reg
+.endm
+
+; Branch
+.macro br addr
+li \addr
+jmp
+.endm
+
+.macro be addr
+li \addr
+jle
+.endm
+
+.macro halt
+li 0xFFFF
+jmp
+.endm
+
+; Inc
+.macro inc reg
+ld 1, %sc1
+tr \reg, %sc0
+add
+tr %dst, \reg
+.endm
+
+; Dec
+.macro dec reg
+ld 1, %sc1
+tr \reg, %sc0
+sub
+tr %dst, \reg
+.endm

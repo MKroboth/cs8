@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/CMake/Modules/cmake-pandocology" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cs8_assembler/dependencies/ELFIO" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cs8_emulator/dependencies/ELFIO" vcs="Git" />
+  </component>
+</project>

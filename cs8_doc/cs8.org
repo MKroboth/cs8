@@ -1,0 +1,29 @@
+* REGISTERS
+
+0 rdst -> Destination Register
+1 rsc0 -> Source 0 Register
+2 rsc1 -> Source 1 Register
+3 ridx -> Index Register
+4 rtmp -> Temporary Register
+5 rsp0 -> Stack Pointer 0
+6 rsp1 -> Stack Pointer 1
+
+
+* Opcodes
+
+0 *limm* /imm/ -> Load value to rtmp (3b)
+1 *ldir* /address:imm/ -> Load rtmp from Memory (3b)
+2 *sdir* /address:imm/ -> Store rtmp to memory (3b)
+3 *lidx* /rbse:ridx/ -> Load rtmp from memory(indirect) (1b)
+4 *sidx* /rbse:ridx/ -> Store rtmp to memory(indirect) (1b)
+5 *treg* /r0/ /r1/ -> Transfer register content r1 <- r0 (2b)
+6 *psh0* /r/ -> Push register to stack 0 (1b)
+7 *psh1* /r/ -> Push register to stack 1 (1b)
+8 *pop0* /r/ -> Pop register from stack 0 (1b)
+9 *pop1* /r/ -> Pop register from stack 1 (1b)
+A *add*  -> rdst = rsc0 + rsc1 (1b)
+B *sub*  -> rdst = rsc0 - rsc1 (1b)
+C *mul*  -> rdst = rsc0 * rsc1 (1b)
+D *divmod* -> rdst = rsc0 / rsc1, rtmp = rsc0 % rsc1 (1b)
+E *nand* -> rdst = rsc0 nand rsc1 (1b)
+F *jleq* -> Jump to rtmp if rcnt <= 0 (1b)

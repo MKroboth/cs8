@@ -1,0 +1,9 @@
+[submodule "CMake/Modules/cmake-pandocology"]
+	path = CMake/Modules/cmake-pandocology
+	url = https://github.com/jeetsukumaran/cmake-pandocology.git
+[submodule "cs8_assembler/dependencies/ELFIO"]
+	path = cs8_assembler/dependencies/ELFIO
+	url = https://github.com/serge1/ELFIO.git
+[submodule "cs8_emulator/dependencies/ELFIO"]
+	path = cs8_emulator/dependencies/ELFIO
+	url = https://github.com/serge1/ELFIO.git

@@ -1,0 +1,28 @@
+.section code, 0x0000
+.entrypoint 0x0000
+
+;; Macros
+.include macros.cs8i
+
+
+;; Code
+start:
+ld data, %bse
+ld 0, %idx
+
+loop:
+lx
+tr %tmp, %cnt
+inc %idx
+be endloop
+tr %cnt, %tmp
+sm 0x2000
+br loop
+endloop:
+
+halt
+
+.section data, 0x1000
+data:
+.bytes "Hello, World!\n", 0
+

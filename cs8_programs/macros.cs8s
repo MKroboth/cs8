@@ -1,0 +1,10 @@
+.macro ld, val, reg
+li \val
+tr %tmp, \reg
+.endm
+
+.macro br, addr
+ld \addr, %dst
+ld 0, %idx
+jle
+.endm
