@@ -119,7 +119,7 @@ public:
         for(auto const& line: lines) {
             ostream << *line << "\n";
         }
-        ostream << "} macros={";
+        ostream << "} m_macros={";
         for(auto const& macro: macros) {
             ostream << macro << "\n";
         }

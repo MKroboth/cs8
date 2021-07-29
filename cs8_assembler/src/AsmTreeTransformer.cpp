@@ -4,6 +4,7 @@
 
 #include "AsmTreeTransformer.h"
 #include <limits>
+#include <ranges>
 
 AsmTree::AsmTree AsmTreeTransformer::transform(const AstRootNode &ast) {
     AsmTree::AsmTree result;
@@ -12,90 +13,52 @@ AsmTree::AsmTree AsmTreeTransformer::transform(const AstRootNode &ast) {
     translate_lines(result.nodes, ast.get_lines());
     number_labels(result.nodes);
 
-    result.label_map = this->label_map;
+    result.label_map = this->m_label_map;
     return result;
 }
 
-void AsmTreeTransformer::label_scan(
-        const std::list<std::unique_ptr<AstLineNode>> &lines) {
-    labels.clear();
-    for (auto const &line: lines) {
-        if (line->get_type() == AstNodeType::Label) {
-            labels.insert(dynamic_cast<AstLabel *>(line.get())->get_name());
-        }
-    }
+void AsmTreeTransformer::label_scan(AsmTreeTransformer::ast_line_nodes const &t_lines) {
+    auto is_label = [](ast_line_node const &x) { return x->get_type() == AstNodeType::Label; };
+    auto get_label_name = [](ast_line_node const &x) { return dynamic_cast<AstLabel *>(x.get())->get_name(); };
+
+    auto label_nodes = t_lines | std::views::filter(is_label);
+
+    m_labels.clear();
+
+    std::transform(label_nodes.begin(), label_nodes.end(),
+                   std::inserter(m_labels, m_labels.end()),
+                   get_label_name);
 }
 
 void AsmTreeTransformer::translate_lines(
-        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &nodes,
-        std::list<std::unique_ptr<AstLineNode>> const &lines) {
-    for (auto const &line : lines) {
-        nodes.push_back(this->translate_line(*line));
-    }
+        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &t_tree_nodes,
+        std::list<std::unique_ptr<AstLineNode>> const &t_lines) {
+    auto translate_line_wrapper = [this](ast_line_node const &x) { return translate_line(*x); };
+
+    std::transform(t_lines.begin(), t_lines.end(),
+                   std::back_inserter(t_tree_nodes),
+                   translate_line_wrapper);
 }
 
 std::unique_ptr<AsmTree::AsmTreeNode>
 AsmTreeTransformer::translate_line(AstLineNode const &node) const {
-    std::unique_ptr<AsmTree::AsmTreeNode> result;
-    switch (node.get_type()) {
-        case AstNodeType::Instruction: {
-            auto const &input = dynamic_cast<AstInstruction const &>(node);
-            AsmTree::Instruction::AsmTreeInstructionNode *instruction;
+    std::map<AstNodeType, std::function<AsmTree::AsmTreeNode *(AstLineNode const &)>> const translators{
+            {AstNodeType::Instruction, [this](AstLineNode const &x) { return this->translate_instruction_node(x); }},
+            {AstNodeType::Directive,   translate_directive_node},
+            {AstNodeType::Label,       translate_label_node}
+    };
 
-            instruction = decode_instruction(input);
-
-            result.reset(instruction);
-        }
-            break;
-        case AstNodeType::Directive: {
-            auto const &input = dynamic_cast<AstDirective const &>(node);
-
-            auto *directive = new AsmTree::AsmTreeDirective;
-            directive->name = input.get_name();
-
-            for (auto const &x: input.get_parameters()) {
-                switch (x->get_type()) {
-                    default:
-                        throw std::runtime_error("Invalid node type");
-
-                    case AstNodeType::SymbolParameter:
-                        directive->args.push_back(
-                                dynamic_cast<AstSymbolParameter const &>(*x).get_name());
-                        break;
-
-                    case AstNodeType::RegisterParameter:
-                        directive->args.push_back(
-                                dynamic_cast<AstRegisterParameter const &>(*x).get_name());
-                        break;
-
-                    case AstNodeType::NumberParameter:
-                        directive->args.push_back(std::to_string(
-                                dynamic_cast<AstNumberParameter const &>(*x).get_value()));
-                        break;
-                    case AstNodeType::StringParameter: {
-                        auto const &string = dynamic_cast<AstStringParameter const &>(*x).get_name();
-                        for (char c : string) {
-                            directive->args.push_back(std::to_string((int) c));
-                        }
-                        break;
-                    }
-                }
-            }
-            result.reset(directive);
-        }
-            break;
-        case AstNodeType::Label: {
-            auto const &input = dynamic_cast<AstLabel const &>(node);
-            auto *label = new AsmTree::AsmTreeLabel;
-            label->name = input.get_name();
-            label->position = std::nullopt;
-            result.reset(label);
-        }
-            break;
-        default:
-            throw std::runtime_error("Invalid node type");
+    if (translators.contains(node.get_type())) {
+        return std::unique_ptr<AsmTree::AsmTreeNode>(translators.at(node.get_type())(node));
+    } else {
+        throw std::runtime_error("Invalid node type");
     }
-    return std::move(result);
+}
+
+AsmTree::AsmTreeNode *
+AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) const {
+    auto const &input = dynamic_cast<AstInstruction const &>(node);
+    return decode_instruction(input);
 }
 
 AsmTree::Instruction::AsmTreeInstructionNode *
@@ -104,7 +67,7 @@ AsmTreeTransformer::decode_instruction(
     static std::map<std::string, std::function<AsmTree::Instruction::AsmTreeInstructionNode *(
             AstInstruction const &)>> const
             instruction_builders{
-            {"limm",     [&labels = this->labels](
+            {"limm",   [&labels = this->m_labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadImmediateInstruction;
                 if (instruction.get_parameters().size() != 1)
@@ -139,7 +102,7 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"lmem",     [&labels = this->labels](
+            {"lmem",   [&labels = this->m_labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadDirectInstruction;
                 if (instruction.get_parameters().size() != 1)
@@ -174,7 +137,7 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"smem",     [&labels = this->labels](
+            {"smem",   [&labels = this->m_labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeStoreDirectInstruction;
                 if (instruction.get_parameters().size() != 1)
@@ -209,7 +172,7 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"lidx",     [](AstInstruction const &instruction) {
+            {"lidx",   [](AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadIndexedInstruction;
 
                 if (!instruction.get_parameters().empty())
@@ -218,7 +181,7 @@ AsmTreeTransformer::decode_instruction(
 
                 return ptr;
             }},
-            {"sidx",     [](AstInstruction const &instruction) {
+            {"sidx",   [](AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeStoreIndexedInstruction;
 
                 if (!instruction.get_parameters().empty())
@@ -426,8 +389,8 @@ AsmTreeTransformer::decode_instruction(
 void AsmTreeTransformer::number_labels(
         std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &nodes) {
 
-    std::unordered_map<std::string, size_t> sections = {{"flat", 0}};
-    std::string current_section = "flat";
+    std::unordered_map<section_name, size_t> sections = {{"flat", 0}};
+    section_name current_section = "flat";
     size_t *position = &sections.at(current_section);
 
     std::unordered_map<std::string, size_t> positions;
@@ -474,7 +437,7 @@ void AsmTreeTransformer::number_labels(
                 break;
         }
 
-        this->label_map = positions;
+        this->m_label_map = positions;
     }
 
     for (auto &node : nodes) {
@@ -531,5 +494,50 @@ void AsmTreeTransformer::number_labels(
         }
     }
 
+}
+
+AsmTree::AsmTreeNode *AsmTreeTransformer::translate_directive_node(const AstLineNode &node) {
+    auto const &input = dynamic_cast<AstDirective const &>(node);
+
+    auto *directive = new AsmTree::AsmTreeDirective;
+    directive->name = input.get_name();
+
+    for (auto const &x: input.get_parameters()) {
+        switch (x->get_type()) {
+            default:
+                throw std::runtime_error("Invalid node type");
+
+            case AstNodeType::SymbolParameter:
+                directive->args.push_back(
+                        dynamic_cast<AstSymbolParameter const &>(*x).get_name());
+                break;
+
+            case AstNodeType::RegisterParameter:
+                directive->args.push_back(
+                        dynamic_cast<AstRegisterParameter const &>(*x).get_name());
+                break;
+
+            case AstNodeType::NumberParameter:
+                directive->args.push_back(std::to_string(
+                        dynamic_cast<AstNumberParameter const &>(*x).get_value()));
+                break;
+            case AstNodeType::StringParameter: {
+                auto const &string = dynamic_cast<AstStringParameter const &>(*x).get_name();
+                for (char c : string) {
+                    directive->args.push_back(std::to_string((int) c));
+                }
+                break;
+            }
+        }
+    }
+    return directive;
+}
+
+AsmTree::AsmTreeNode *AsmTreeTransformer::translate_label_node(const AstLineNode &node) {
+    auto const &input = dynamic_cast<AstLabel const &>(node);
+    auto *label = new AsmTree::AsmTreeLabel;
+    label->name = input.get_name();
+    label->position = std::nullopt;
+    return label;
 }
 

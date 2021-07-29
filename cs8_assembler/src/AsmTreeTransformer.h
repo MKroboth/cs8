@@ -33,14 +33,30 @@ public:
 };
 
 class AsmTreeTransformer {
-    std::unordered_set<std::string> labels;
-    std::unordered_map<std::string, size_t> label_map;
+    using section_name = std::string;
+    using label_name = std::string;
+    using address = size_t;
 
-    void label_scan(std::list<std::unique_ptr<AstLineNode>> const&);
-    void translate_lines(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>>& nodes, std::list<std::unique_ptr<AstLineNode>> const& list);
-    std::unique_ptr<AsmTree::AsmTreeNode> translate_line(AstLineNode const& list) const;
-    AsmTree::Instruction::AsmTreeInstructionNode *decode_instruction(const AstInstruction &instruction) const;
+    using ast_line_node = std::unique_ptr<AstLineNode>;
+    using ast_line_nodes = std::list<ast_line_node>;
+
+    using asmtree_node = std::unique_ptr<AsmTree::AsmTreeNode>;
+
+    using asmtree_instruction_node = AsmTree::Instruction::AsmTreeInstructionNode;
+
+    std::unordered_set<label_name> m_labels;
+    std::unordered_map<label_name, address> m_label_map;
+
+    void label_scan(ast_line_nodes const&);
+    void translate_lines(std::vector<asmtree_node>& t_tree_nodes, ast_line_nodes const& t_lines);
+    asmtree_node translate_line(AstLineNode const& list) const;
+
+    AsmTree::Instruction::AsmTreeInstructionNode *decode_instruction(AstInstruction const& instruction) const;
     void number_labels(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &vector);
+
+    [[nodiscard]] AsmTree::AsmTreeNode* translate_instruction_node(AstLineNode const& node) const;
+    [[nodiscard]] static AsmTree::AsmTreeNode* translate_directive_node(AstLineNode const& node) ;
+    [[nodiscard]] static AsmTree::AsmTreeNode* translate_label_node(AstLineNode const& node) ;
 
 public:
     [[nodiscard]]
