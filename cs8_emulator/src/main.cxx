@@ -2,12 +2,10 @@
 // Created by mkr on 7/24/21.
 //
 
-#include <cassert>
 #include "devices.hxx"
 #include "bus.hxx"
 #include "cpu.hxx"
 #include "memory.hxx"
-#include "badasm.hxx"
 #include "serial_port.hxx"
 #include <elfio/elfio.hpp>
 #include <filesystem>
