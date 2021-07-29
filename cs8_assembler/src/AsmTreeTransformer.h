@@ -36,7 +36,6 @@ class AsmTreeTransformer {
     std::unordered_set<std::string> labels;
     std::unordered_map<std::string, size_t> label_map;
 
-    void destring(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>>& nodes);
     void label_scan(std::list<std::unique_ptr<AstLineNode>> const&);
     void translate_lines(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>>& nodes, std::list<std::unique_ptr<AstLineNode>> const& list);
     std::unique_ptr<AsmTree::AsmTreeNode> translate_line(AstLineNode const& list) const;

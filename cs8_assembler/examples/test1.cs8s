@@ -1,28 +1,15 @@
-.section code, 0x0000
-.entrypoint 0x0000
+.include cs8.cs8l               ; Include linker file
+.include macros.cs8i            ; Include standard macros
 
-;; Macros
-.include macros.cs8i
+.section code
+start:      ldt message, %bse   ; Load data to base register
+            ldt 0, %idx         ; Load 0 to the index register
+loop:       lxt %cnt            ; Load count and tmp from base+index
+            inc %idx            ; Increment index
+            be  endloop         ; If count <= 0, jump to endloop
+            sm  0x2000          ; Store tmp to 0x2000
+            br  loop            ; Jump to loop
+endloop:    halt                ; Stop execution
 
-
-;; Code
-start:
-ld data, %bse
-ld 0, %idx
-
-loop:
-lx
-tr %tmp, %cnt
-inc %idx
-be endloop
-tr %cnt, %tmp
-sm 0x2000
-br loop
-endloop:
-
-halt
-
-.section data, 0x1000
-data:
-.bytes "Hello, World!\n", 0
-
+.section data
+message:    .bytes "Hello, World!\n", 0

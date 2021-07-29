@@ -93,11 +93,11 @@ public:
         return address;
     }
 
-    RW get_mode() const {
+    [[nodiscard]] RW get_mode() const {
         return mode;
     }
 
-    device_id get_bus_owner() const {
+    [[nodiscard]] device_id get_bus_owner() const {
         return bus_owner;
     }
 

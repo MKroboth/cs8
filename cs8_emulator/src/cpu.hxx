@@ -32,7 +32,8 @@ class CPU : public BusDevice<Data, Address, CPU_ID, Bus>, public Device {
         rS5,
         rln,
         rCNT, // Loop counter
-        rBSE; // Base address
+        rBSE,
+        rtmp2; // Base address
 
     std::array<register_type*, 0x10> registers {
             &rdst,
@@ -75,7 +76,7 @@ class CPU : public BusDevice<Data, Address, CPU_ID, Bus>, public Device {
         Mul = 0xC,
         DivMod = 0xD,
         Nand = 0xE,
-        JumpLeq = 0xF
+        Extended = 0xF
     } opcode {Opcode::Unknown};
 
     enum class Phase {
@@ -217,6 +218,7 @@ public:
                    case Opcode::Pop0:
                    case Opcode::Pop1:
                    case Opcode::LoadDirect: {
+                       rtmp2 = rtmp;
                        rtmp = rValue;
                    } break;
                    case Opcode::Push0:
@@ -228,6 +230,7 @@ public:
                        cpu_phase = Phase::Store0;
                    } return;
                    case Opcode::TransferRegister:
+                       if(rR1 == 4) rtmp2 = rtmp;
                        *registers[rR1] = *registers[rR0];
                        break;
                    case Opcode::Add:
@@ -239,18 +242,33 @@ public:
                        rdst = rsc0 * rsc1;
                    break; case Opcode::DivMod:
                        rdst = rsc0 / rsc1;
+                       rtmp2 = rtmp;
                        rtmp = rsc0 % rsc1;
                    break; case Opcode::Nand:
                        rdst = ~(rsc0 & rsc1);
-                   break; case Opcode::JumpLeq:
-                       if(rR0 == 0x1 || rCNT <= 0) {
-                           if(rtmp == -1) {
-                               cpu_phase = Phase::Halted;
-                               return;
-                           }
-                           rln = rip;
-                           rip = rtmp;
-
+                   break; case Opcode::Extended:
+                       switch (rR0) {
+                           case 0x00:
+                               if(rCNT <= 0) {
+                                   rln = rip;
+                                   rip = rtmp;
+                               }
+                               break;
+                           case 0x01:
+                               if(rtmp == -1) {
+                                   cpu_phase = Phase::Halted;
+                                   return;
+                               } else {
+                                   rln = rip;
+                                   rip = rtmp;
+                               }
+                               break;
+                           case 0x02:
+                           {
+                               auto back = rtmp;
+                               rtmp = rtmp2;
+                               rtmp2 = back;
+                           } break;
                        }
                        break;
                }

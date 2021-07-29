@@ -1,0 +1,5 @@
+.entrypoint    0x0000
+.section code, 0x0000
+.section data, 0x1000
+.secinfo code, execute, read
+.secinfo data, read, write

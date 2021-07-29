@@ -1,28 +1,72 @@
 ; Load
-.macro ld val, reg
-li \val
+.macro li val, reg
+limm \val
+tr %tmp, \reg
+rtm
+.endm
+.macro ldt val, reg
+limm \val
 tr %tmp, \reg
 .endm
 
+.macro lit val
+limm \val
+.endm
+
+.macro lx reg
+lidx
+tr %tmp, \reg
+rtm
+.endm
+
+.macro lxt reg
+lidx
+tr %tmp, \reg
+.endm
+
+; Store
+.macro sm addr
+smem \addr
+rtm
+.endm
+
+.macro smt addr
+smem \addr
+.endm
+
+.macro sd reg, addr
+tr \reg, %tmp
+smem \addr
+rtm
+.endm
+
+.macro sdt reg, addr
+tr \reg, %tmp
+smem \addr
+.endm
+
+
 ; Branch
 .macro br addr
-li \addr
+limm \addr
 jmp
+rtm
 .endm
 
 .macro be addr
-li \addr
+limm \addr
 jle
+rtm
 .endm
 
 .macro halt
-li 0xFFFF
+limm 0xFFFF
 jmp
 .endm
 
 ; Inc
 .macro inc reg
-ld 1, %sc1
+li 1, %sc1
 tr \reg, %sc0
 add
 tr %dst, \reg
@@ -30,7 +74,7 @@ tr %dst, \reg
 
 ; Dec
 .macro dec reg
-ld 1, %sc1
+li 1, %sc1
 tr \reg, %sc0
 sub
 tr %dst, \reg

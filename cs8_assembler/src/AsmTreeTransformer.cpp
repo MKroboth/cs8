@@ -104,11 +104,11 @@ AsmTreeTransformer::decode_instruction(
     static std::map<std::string, std::function<AsmTree::Instruction::AsmTreeInstructionNode *(
             AstInstruction const &)>> const
             instruction_builders{
-            {"li",     [&labels = this->labels](
+            {"limm",     [&labels = this->labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadImmediateInstruction;
                 if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("li", 1,
+                    throw InvalidInstructionParameterCountError("limm", 1,
                                                                 instruction.get_parameters().size());
 
 
@@ -139,11 +139,11 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"lm",     [&labels = this->labels](
+            {"lmem",     [&labels = this->labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadDirectInstruction;
                 if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("lm", 1,
+                    throw InvalidInstructionParameterCountError("lmem", 1,
                                                                 instruction.get_parameters().size());
 
 
@@ -174,11 +174,11 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"sm",     [&labels = this->labels](
+            {"smem",     [&labels = this->labels](
                     AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeStoreDirectInstruction;
                 if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("sm", 1,
+                    throw InvalidInstructionParameterCountError("smem", 1,
                                                                 instruction.get_parameters().size());
 
 
@@ -209,20 +209,20 @@ AsmTreeTransformer::decode_instruction(
                 }
                 return ptr;
             }},
-            {"lx",     [](AstInstruction const &instruction) {
+            {"lidx",     [](AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeLoadIndexedInstruction;
 
                 if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("lx", 0,
+                    throw InvalidInstructionParameterCountError("lidx", 0,
                                                                 instruction.get_parameters().size());
 
                 return ptr;
             }},
-            {"sx",     [](AstInstruction const &instruction) {
+            {"sidx",     [](AstInstruction const &instruction) {
                 auto ptr = new AsmTree::Instruction::AsmTreeStoreIndexedInstruction;
 
                 if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("sx", 0,
+                    throw InvalidInstructionParameterCountError("sidx", 0,
                                                                 instruction.get_parameters().size());
 
                 return ptr;
@@ -366,6 +366,15 @@ AsmTreeTransformer::decode_instruction(
 
                 if (!instruction.get_parameters().empty())
                     throw InvalidInstructionParameterCountError("jmp", 0,
+                                                                instruction.get_parameters().size());
+
+                return ptr;
+            }},
+            {"rtm",    [](AstInstruction const &instruction) {
+                auto ptr = new AsmTree::Instruction::AsmTreeRestoreTMPInstruction;
+
+                if (!instruction.get_parameters().empty())
+                    throw InvalidInstructionParameterCountError("rtm", 0,
                                                                 instruction.get_parameters().size());
 
                 return ptr;
@@ -524,7 +533,3 @@ void AsmTreeTransformer::number_labels(
 
 }
 
-void AsmTreeTransformer::destring(
-        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &nodes) {
-
-}

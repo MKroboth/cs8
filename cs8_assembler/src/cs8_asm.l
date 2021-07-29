@@ -65,7 +65,7 @@ std::string buffer;
           }
         }
 
-[\;][^\n]*[\n]* { /* eat comments */ }
+[\;][^\n]*[\n]* { /* eat comments */ return TOK_NEWLINE; }
 
 ".define" { return TOK_DEFINE; }
 ".macro"  { return TOK_START_MACRO; }

@@ -93,7 +93,7 @@ namespace AsmTree {
             Multiply,
             DivideModulo,
             Nand,
-            JumpIfLessOrEqual
+            JumpIfLessOrEqual, RestoreTMP, Jump
         };
 
         class AsmTreeInstructionNode : public AsmTreeNode {
@@ -178,6 +178,10 @@ namespace AsmTree {
                     return "NAND";
                 case AsmTreeInstructionType::JumpIfLessOrEqual:
                     return "Jump if Less of Equal";
+                case AsmTreeInstructionType::Jump:
+                    return "Jump";
+                case AsmTreeInstructionType::RestoreTMP:
+                    return "RestoreTMP";
             }
             throw std::logic_error("illegal state");
         }
@@ -542,11 +546,23 @@ namespace AsmTree {
             os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
         }
         [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
-            return AsmTreeInstructionType::JumpIfLessOrEqual;
+            return AsmTreeInstructionType::Jump;
         }
 
         [[nodiscard]] std::array<uint8_t, 1> emit() const final {
             return{0x1F};
+        }
+        };
+        class AsmTreeRestoreTMPInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+            os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+        }
+        [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+            return AsmTreeInstructionType::RestoreTMP;
+        }
+
+        [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+            return{0x2F};
         }
         };
     }
