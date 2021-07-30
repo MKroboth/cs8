@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="CS8_Assembler" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="$ContentRoot$/cs8_assembler/examples/test1.cs8s" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="cs8" TARGET_NAME="CS8_Assembler" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="cs8" RUN_TARGET_NAME="CS8_Assembler">
+    <method v="2">
+      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+    </method>
+  </configuration>
+</component>

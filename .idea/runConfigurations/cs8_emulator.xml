@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="cs8_emulator" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="$CMakeCurrentBuildDir$/../cs8_assembler/out.elf" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="cs8" TARGET_NAME="cs8_emulator" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="cs8" RUN_TARGET_NAME="cs8_emulator">
+    <method v="2">
+      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="CS8_Assembler" run_configuration_type="CMakeRunConfiguration" run_configuration_target="CMakeBuildProfile:Debug" />
+    </method>
+  </configuration>
+</component>
