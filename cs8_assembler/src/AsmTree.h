@@ -93,7 +93,7 @@ namespace AsmTree {
             Multiply,
             DivideModulo,
             Nand,
-            JumpIfLessOrEqual, RestoreTMP, Jump
+            JumpIfLessOrEqual, RestoreTMP, Jump, RotateRight, And, Or, ShiftRight, Invert, ShiftLeft, RotateLeft
         };
 
         class AsmTreeInstructionNode : public AsmTreeNode {
@@ -123,7 +123,7 @@ namespace AsmTree {
         public:
             [[nodiscard]] size_t get_length() const final { return 2; }
             [[nodiscard]] virtual std::array<uint8_t, 2> emit() const = 0;
-            std::vector<uint8_t> emit_binary() const final {
+            [[nodiscard]] std::vector<uint8_t> emit_binary() const final {
                 auto array = emit();
                 std::vector<uint8_t> result(array.size());
                 std::move(array.begin(), array.end(), std::back_inserter(result));
@@ -135,7 +135,7 @@ namespace AsmTree {
         public:
             [[nodiscard]] size_t get_length() const final { return 3; }
             [[nodiscard]] virtual std::array<uint8_t, 3> emit() const = 0;
-            std::vector<uint8_t> emit_binary() const final {
+            [[nodiscard]] std::vector<uint8_t> emit_binary() const final {
                 auto array = emit();
                 std::vector<uint8_t> result(array.size());
                 std::move(array.begin(), array.end(), std::back_inserter(result));
@@ -182,6 +182,20 @@ namespace AsmTree {
                     return "Jump";
                 case AsmTreeInstructionType::RestoreTMP:
                     return "RestoreTMP";
+                case AsmTreeInstructionType::RotateRight:
+                    return "Rotate Right";
+                case AsmTreeInstructionType::And:
+                    return "And";
+                case AsmTreeInstructionType::Or:
+                    return "Or";
+                case AsmTreeInstructionType::ShiftRight:
+                    return "ShiftRight";
+                case AsmTreeInstructionType::Invert:
+                    return "Invert";
+                case AsmTreeInstructionType::ShiftLeft:
+                    return "ShiftLeft";
+                case AsmTreeInstructionType::RotateLeft:
+                    return "RotateLeft";
             }
             throw std::logic_error("illegal state");
         }
@@ -212,7 +226,7 @@ namespace AsmTree {
                 return AsmTreeInstructionType::LoadImmediate;
             }
 
-            std::array<uint8_t, 3> emit() const final {
+            [[nodiscard]] std::array<uint8_t, 3> emit() const final {
                 return {0x00,
                         (uint8_t)((std::bit_cast<uint16_t>(*immediate) & 0xFF00) >> 8),
                         (uint8_t)(((std::bit_cast<uint16_t>(*immediate)) & 0x00FF)),
@@ -448,6 +462,7 @@ namespace AsmTree {
                 return{static_cast<uint8_t>(0x08 | (static_cast<uint8_t>(source) << 4))};
             }
         };
+
         class AsmTreePop1Instruction final : public AsmTreeInstruction1BNode {
         public:
             AsmTreeRegister source{AsmTreeRegister::bse};
@@ -529,6 +544,91 @@ namespace AsmTree {
                 return{0x0E};
             }
         };
+        class AsmTreeOrInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::Or;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x1E};
+            }
+        };
+        class AsmTreeAndInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::And;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x2E};
+            }
+        };
+        class AsmTreeInvertInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::Invert;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x3E};
+            }
+        };
+        class AsmTreeShiftLeftInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::ShiftLeft;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x4E};
+            }
+        };
+        class AsmTreeShiftRightInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::ShiftRight;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x5E};
+            }
+        };
+        class AsmTreeRotateLeftInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::RotateLeft;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x6E};
+            }
+        };
+        class AsmTreeRotateRightInstruction final : public AsmTreeInstruction1BNode {
+        public:void to_ostream(std::ostream &os) const override {
+                os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
+            }
+            [[nodiscard]] AsmTreeInstructionType get_instruction_type() const override {
+                return AsmTreeInstructionType::RotateRight;
+            }
+
+            [[nodiscard]] std::array<uint8_t, 1> emit() const final {
+                return{0x7E};
+            }
+        };
+
         class AsmTreeJumpIfLessOrEqualInstruction final : public AsmTreeInstruction1BNode {
         public:void to_ostream(std::ostream &os) const override {
             os << "Instruction\t" << instruction_type_to_string(get_instruction_type()) << "\n";
