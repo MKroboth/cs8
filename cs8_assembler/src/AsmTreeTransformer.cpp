@@ -21,7 +21,7 @@ void AsmTreeTransformer::label_scan(AsmTreeTransformer::ast_line_nodes const &t_
     auto is_label = [](ast_line_node const &x) { return x->get_type() == AstNodeType::Label; };
     auto get_label_name = [](ast_line_node const &x) { return dynamic_cast<AstLabel *>(x.get())->get_name(); };
 
-    auto label_nodes = t_lines | std::views::filter(is_label);
+    auto label_nodes = std::views::filter(t_lines, is_label);
 
     m_labels.clear();
 
@@ -41,7 +41,7 @@ void AsmTreeTransformer::translate_lines(
 }
 
 std::unique_ptr<AsmTree::AsmTreeNode>
-AsmTreeTransformer::translate_line(AstLineNode const &node) const {
+AsmTreeTransformer::translate_line(AstLineNode const &node) {
     std::map<AstNodeType, std::function<AsmTree::AsmTreeNode *(AstLineNode const &)>> const translators{
             {AstNodeType::Instruction, [this](AstLineNode const &x) { return this->translate_instruction_node(x); }},
             {AstNodeType::Directive,   translate_directive_node},
@@ -56,332 +56,375 @@ AsmTreeTransformer::translate_line(AstLineNode const &node) const {
 }
 
 AsmTree::AsmTreeNode *
-AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) const {
+AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) {
     auto const &input = dynamic_cast<AstInstruction const &>(node);
     return decode_instruction(input);
 }
 
+
+namespace translate_instruction {
+    using labels = AsmTreeTransformer::labels;
+    using instruction_node = AsmTreeTransformer::asmtree_instruction_node;
+
+
+    instruction_node *limm(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeLoadImmediateInstruction;
+        if (instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("limm", 1,
+                                                        instruction.get_parameters().size());
+
+
+        auto const &parameter0 = instruction.get_parameter(0);
+
+        switch (parameter0->get_type()) {
+            case AstNodeType::SymbolParameter: {
+                auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
+
+                if (labels.contains(parameter.get_name())) {
+                    ptr->label = std::make_optional(
+                            parameter.get_name());
+                } else
+                    throw std::logic_error(
+                            "given symbol is not a label");
+
+            }
+                break;
+
+            case AstNodeType::NumberParameter: {
+                auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
+                ptr->immediate = std::bit_cast<int16_t>(
+                        static_cast<uint16_t>(parameter.get_value()));
+            }
+                break;
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *lmem(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeLoadDirectInstruction;
+        if (instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("lmem", 1,
+                                                        instruction.get_parameters().size());
+
+
+        auto const &parameter0 = instruction.get_parameter(0);
+
+        switch (parameter0->get_type()) {
+            case AstNodeType::SymbolParameter: {
+                auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
+
+                if (labels.contains(parameter.get_name())) {
+                    ptr->label = std::make_optional(
+                            parameter.get_name());
+                } else
+                    throw std::logic_error(
+                            "given symbol is not a label");
+
+            }
+                break;
+
+            case AstNodeType::NumberParameter: {
+                auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
+                ptr->address = std::bit_cast<int16_t>(
+                        static_cast<uint16_t>(parameter.get_value()));
+            }
+                break;
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *smem(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeStoreDirectInstruction;
+        if (instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("smem", 1,
+                                                        instruction.get_parameters().size());
+
+
+        auto const &parameter0 = instruction.get_parameter(0);
+
+        switch (parameter0->get_type()) {
+            case AstNodeType::SymbolParameter: {
+                auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
+
+                if (labels.contains(parameter.get_name())) {
+                    ptr->label = std::make_optional(
+                            parameter.get_name());
+                } else
+                    throw std::logic_error(
+                            "given symbol is not a label");
+
+            }
+                break;
+
+            case AstNodeType::NumberParameter: {
+                auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
+                ptr->address = std::bit_cast<int16_t>(
+                        static_cast<uint16_t>(parameter.get_value()));
+            }
+                break;
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *lidx(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeLoadIndexedInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("lidx", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *sidx(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeStoreIndexedInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("sidx", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *add(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeAddInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("add", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *sub(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeSubtractInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("sub", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *mul(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeMultiplyInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("mul", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *divmod(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeDivideModuloInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("divmod", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *psh0(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreePush0Instruction;
+
+        if (!instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("psh0", 1,
+                                                        instruction.get_parameters().size());
+        auto const &parameter0 = instruction.get_parameter(0);
+        switch (parameter0->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
+                ptr->source = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *psh1(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreePush1Instruction;
+
+        if (!instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("psh1", 1,
+                                                        instruction.get_parameters().size());
+        auto const &parameter0 = instruction.get_parameter(0);
+        switch (parameter0->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
+                ptr->source = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *pop0(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreePop0Instruction;
+
+        if (!instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("pop0", 1,
+                                                        instruction.get_parameters().size());
+        auto const &parameter0 = instruction.get_parameter(0);
+        switch (parameter0->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
+                ptr->source = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *pop1(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreePop1Instruction;
+
+        if (!instruction.get_parameters().size() != 1)
+            throw InvalidInstructionParameterCountError("pop1", 1,
+                                                        instruction.get_parameters().size());
+        auto const &parameter0 = instruction.get_parameter(0);
+        switch (parameter0->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
+                ptr->source = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+        return ptr;
+    }
+
+    instruction_node *nand(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeNandInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("nand", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *jle(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeJumpIfLessOrEqualInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("jle", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *jmp(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeJumpInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("jmp", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *rtm(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeRestoreTMPInstruction;
+
+        if (!instruction.get_parameters().empty())
+            throw InvalidInstructionParameterCountError("rtm", 0,
+                                                        instruction.get_parameters().size());
+
+        return ptr;
+    }
+
+    instruction_node *tr(labels &labels, AstInstruction const &instruction) {
+        auto ptr = new AsmTree::Instruction::AsmTreeTransferRegisterInstruction;
+        if (instruction.get_parameters().size() != 2)
+            throw InvalidInstructionParameterCountError("tr", 2,
+                                                        instruction.get_parameters().size());
+
+
+        auto const &parameter0 = instruction.get_parameter(0);
+        auto const &parameter1 = instruction.get_parameter(1);
+
+        switch (parameter0->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
+                ptr->source = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+
+        switch (parameter1->get_type()) {
+            case AstNodeType::RegisterParameter: {
+                auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter1);
+                ptr->target = AsmTree::register_from_name(
+                        parameter.get_name());
+            }
+                break;
+
+            default:
+                throw std::logic_error("Invalid parameter");
+        }
+
+        return ptr;
+    }
+}
+
 AsmTree::Instruction::AsmTreeInstructionNode *
-AsmTreeTransformer::decode_instruction(
-        AstInstruction const &instruction) const {
-    static std::map<std::string, std::function<AsmTree::Instruction::AsmTreeInstructionNode *(
-            AstInstruction const &)>> const
+AsmTreeTransformer::decode_instruction(AstInstruction const &instruction) {
+    using instruction_transformer =
+    std::function<translate_instruction::instruction_node *(translate_instruction::labels &,
+                                                            AstInstruction const &)>;
+
+    static std::map<std::string, instruction_transformer> const
             instruction_builders{
-            {"limm",   [&labels = this->m_labels](
-                    AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeLoadImmediateInstruction;
-                if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("limm", 1,
-                                                                instruction.get_parameters().size());
-
-
-                auto const &parameter0 = instruction.get_parameter(0);
-
-                switch (parameter0->get_type()) {
-                    case AstNodeType::SymbolParameter: {
-                        auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
-
-                        if (labels.contains(parameter.get_name())) {
-                            ptr->label = std::make_optional(
-                                    parameter.get_name());
-                        } else
-                            throw std::logic_error(
-                                    "given symbol is not a label");
-
-                    }
-                        break;
-
-                    case AstNodeType::NumberParameter: {
-                        auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
-                        ptr->immediate = std::bit_cast<int16_t>(
-                                static_cast<uint16_t>(parameter.get_value()));
-                    }
-                        break;
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"lmem",   [&labels = this->m_labels](
-                    AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeLoadDirectInstruction;
-                if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("lmem", 1,
-                                                                instruction.get_parameters().size());
-
-
-                auto const &parameter0 = instruction.get_parameter(0);
-
-                switch (parameter0->get_type()) {
-                    case AstNodeType::SymbolParameter: {
-                        auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
-
-                        if (labels.contains(parameter.get_name())) {
-                            ptr->label = std::make_optional(
-                                    parameter.get_name());
-                        } else
-                            throw std::logic_error(
-                                    "given symbol is not a label");
-
-                    }
-                        break;
-
-                    case AstNodeType::NumberParameter: {
-                        auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
-                        ptr->address = std::bit_cast<int16_t>(
-                                static_cast<uint16_t>(parameter.get_value()));
-                    }
-                        break;
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"smem",   [&labels = this->m_labels](
-                    AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeStoreDirectInstruction;
-                if (instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("smem", 1,
-                                                                instruction.get_parameters().size());
-
-
-                auto const &parameter0 = instruction.get_parameter(0);
-
-                switch (parameter0->get_type()) {
-                    case AstNodeType::SymbolParameter: {
-                        auto const &parameter = dynamic_cast<AstSymbolParameter const &>(*parameter0);
-
-                        if (labels.contains(parameter.get_name())) {
-                            ptr->label = std::make_optional(
-                                    parameter.get_name());
-                        } else
-                            throw std::logic_error(
-                                    "given symbol is not a label");
-
-                    }
-                        break;
-
-                    case AstNodeType::NumberParameter: {
-                        auto const &parameter = dynamic_cast<AstNumberParameter const &>(*parameter0);
-                        ptr->address = std::bit_cast<int16_t>(
-                                static_cast<uint16_t>(parameter.get_value()));
-                    }
-                        break;
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"lidx",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeLoadIndexedInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("lidx", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"sidx",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeStoreIndexedInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("sidx", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"add",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeAddInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("add", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"sub",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeSubtractInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("sub", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"mul",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeMultiplyInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("mul", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"divmod", [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeDivideModuloInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("divmod", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"psh0",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreePush0Instruction;
-
-                if (!instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("psh0", 1,
-                                                                instruction.get_parameters().size());
-                auto const &parameter0 = instruction.get_parameter(0);
-                switch (parameter0->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
-                        ptr->source = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"psh1",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreePush1Instruction;
-
-                if (!instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("psh1", 1,
-                                                                instruction.get_parameters().size());
-                auto const &parameter0 = instruction.get_parameter(0);
-                switch (parameter0->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
-                        ptr->source = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"pop0",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreePop0Instruction;
-
-                if (!instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("pop0", 1,
-                                                                instruction.get_parameters().size());
-                auto const &parameter0 = instruction.get_parameter(0);
-                switch (parameter0->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
-                        ptr->source = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"pop1",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreePop1Instruction;
-
-                if (!instruction.get_parameters().size() != 1)
-                    throw InvalidInstructionParameterCountError("pop1", 1,
-                                                                instruction.get_parameters().size());
-                auto const &parameter0 = instruction.get_parameter(0);
-                switch (parameter0->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
-                        ptr->source = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-                return ptr;
-            }},
-            {"nand",   [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeNandInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("nand", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"jle",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeJumpIfLessOrEqualInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("jle", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"jmp",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeJumpInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("jmp", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"rtm",    [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeRestoreTMPInstruction;
-
-                if (!instruction.get_parameters().empty())
-                    throw InvalidInstructionParameterCountError("rtm", 0,
-                                                                instruction.get_parameters().size());
-
-                return ptr;
-            }},
-            {"tr",     [](AstInstruction const &instruction) {
-                auto ptr = new AsmTree::Instruction::AsmTreeTransferRegisterInstruction;
-                if (instruction.get_parameters().size() != 2)
-                    throw InvalidInstructionParameterCountError("tr", 2,
-                                                                instruction.get_parameters().size());
-
-
-                auto const &parameter0 = instruction.get_parameter(0);
-                auto const &parameter1 = instruction.get_parameter(1);
-
-                switch (parameter0->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter0);
-                        ptr->source = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-
-                switch (parameter1->get_type()) {
-                    case AstNodeType::RegisterParameter: {
-                        auto const &parameter = dynamic_cast<AstRegisterParameter const &>(*parameter1);
-                        ptr->target = AsmTree::register_from_name(
-                                parameter.get_name());
-                    }
-                        break;
-
-                    default:
-                        throw std::logic_error("Invalid parameter");
-                }
-
-                return ptr;
-            }},
+            {"limm",   translate_instruction::limm},
+            {"lmem",   translate_instruction::lmem},
+            {"smem",   translate_instruction::smem},
+            {"lidx",   translate_instruction::lidx},
+            {"sidx",   translate_instruction::sidx},
+            {"add",    translate_instruction::add},
+            {"sub",    translate_instruction::sub},
+            {"mul",    translate_instruction::mul},
+            {"divmod", translate_instruction::divmod},
+            {"psh0",   translate_instruction::psh0},
+            {"psh1",   translate_instruction::psh1},
+            {"pop0",   translate_instruction::pop0},
+            {"pop1",   translate_instruction::pop1},
+            {"nand",   translate_instruction::nand},
+            {"jle",    translate_instruction::jle},
+            {"jmp",    translate_instruction::jmp},
+            {"rtm",    translate_instruction::rtm},
+            {"tr",     translate_instruction::tr},
     };
 
     if (instruction_builders.contains(instruction.get_name())) {
-        return instruction_builders.at(instruction.get_name())(instruction);
+        instruction_transformer transformer = instruction_builders.at(instruction.get_name());
+        return transformer(this->m_labels, instruction);
     } else throw UnknownInstructionError(instruction.get_name());
 
 }
