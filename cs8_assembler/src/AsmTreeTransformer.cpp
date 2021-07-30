@@ -442,7 +442,7 @@ void AsmTreeTransformer::number_labels(
     section_name current_section = "flat";
     size_t *position = &sections.at(current_section);
 
-    std::unordered_map<std::string, size_t> positions;
+    std::unordered_map<std::string, std::pair<size_t, std::string>> positions;
 
     for (auto const &node : nodes) {
         switch (node->get_type()) {
@@ -451,7 +451,7 @@ void AsmTreeTransformer::number_labels(
                 auto &lbl = dynamic_cast<AsmTree::AsmTreeLabel &>(*node);
                 lbl.position = *position;
                 lbl.section = current_section;
-                positions[lbl.name] = *position;
+                positions[lbl.name] = { *position, current_section };
             }
                 break;
             case AsmTree::AsmTreeType::Instruction: {
@@ -486,7 +486,12 @@ void AsmTreeTransformer::number_labels(
                 break;
         }
 
-        this->m_label_map = positions;
+
+        this->m_label_map.clear();
+        std::transform(positions.begin(), positions.end(), std::inserter(this->m_label_map, this->m_label_map.end()),
+                       [&](std::pair<std::string, std::pair<size_t, std::string>> const& p) {
+            return std::pair { p.first, AsmTree::AsmTree::label {p.second.first, p.second.second }};
+        });
     }
 
     for (auto &node : nodes) {
@@ -502,7 +507,7 @@ void AsmTreeTransformer::number_labels(
                         if (instr.label.has_value()) {
                             if (positions.contains(*instr.label)) {
                                 auto v = std::bit_cast<int16_t>(
-                                        (uint16_t) positions.at(*instr.label));
+                                        (uint16_t) positions.at(*instr.label).first);
                                 instr.immediate = v;
                             }
                         }
@@ -514,7 +519,7 @@ void AsmTreeTransformer::number_labels(
 
                             if (instr.label.has_value()) {
                                 if (positions.contains(*instr.label)) {
-                                    instr.address = positions.at(*instr.label);
+                                    instr.address = positions.at(*instr.label).first;
                                 }
                             }
                         }
@@ -526,7 +531,7 @@ void AsmTreeTransformer::number_labels(
 
                             if (instr.label.has_value()) {
                                 if (positions.contains(*instr.label)) {
-                                    instr.address = positions.at(*instr.label);
+                                    instr.address = positions.at(*instr.label).first;
                                 }
                             }
                         }

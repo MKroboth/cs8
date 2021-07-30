@@ -48,7 +48,7 @@ void cs8_assembler::assemble(const std::filesystem::path &output,
         AsmTreeTransformer trans;
         auto asm_tree = trans.transform(*ast);
         for(auto const& entry : asm_tree.label_map) {
-            std::cout << entry.first << std::hex << ": " << entry.second << std::dec << '\n';
+            std::cout << entry.first << std::hex << ": " << entry.second.address << std::dec << '\n';
         }
 
         for(auto const& node : asm_tree.nodes) {

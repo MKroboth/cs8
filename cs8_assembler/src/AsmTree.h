@@ -33,8 +33,12 @@ namespace AsmTree {
 
     class AsmTree {
     public:
+        struct label {
+            size_t address;
+            std::string section;
+        };
         std::vector<std::unique_ptr<AsmTreeNode>> nodes;
-        std::unordered_map<std::string, size_t> label_map;
+        std::unordered_map<std::string, label> label_map;
     };
 
     class AsmTreeDirective final : public AsmTreeNode {

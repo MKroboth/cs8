@@ -65,7 +65,7 @@ private:
     std::unordered_set<label_name> m_labels;
 
     /// An association between present labels and their addresses.
-    std::unordered_map<label_name, address> m_label_map;
+    std::unordered_map<label_name, AsmTree::AsmTree::label> m_label_map;
 
     /**
      * \brief Scan the given ast nodes for labels and insert them into m_labels.

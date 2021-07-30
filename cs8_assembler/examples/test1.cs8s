@@ -2,6 +2,7 @@
 .include macros.cs8i            ; Include standard macros
 
 .section code
+.global start
 start:      ldt message, %bse   ; Load data to base register
             ldt 0, %idx         ; Load 0 to the index register
 loop:       lxt %cnt            ; Load count and tmp from base+index
