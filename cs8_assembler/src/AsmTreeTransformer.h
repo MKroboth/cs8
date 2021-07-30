@@ -61,19 +61,71 @@ public:
     using asmtree_instruction_node = AsmTree::Instruction::AsmTreeInstructionNode;
     using labels = std::unordered_set<label_name>;
 private:
+    /// All labels in the transformation.
     std::unordered_set<label_name> m_labels;
+
+    /// An association between present labels and their addresses.
     std::unordered_map<label_name, address> m_label_map;
 
+    /**
+     * \brief Scan the given ast nodes for labels and insert them into m_labels.
+     */
     void label_scan(ast_line_nodes const&);
-    void translate_lines(std::vector<asmtree_node>& t_tree_nodes, ast_line_nodes const& t_lines);
-    asmtree_node translate_line(AstLineNode const& list) const;
 
-    AsmTree::Instruction::AsmTreeInstructionNode *decode_instruction(AstInstruction const& instruction) const;
-    void number_labels(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &vector);
+    /**
+     * \brief Translate the given ast line nodes into their corresponding asmtree nodes.
+     */
+    inline void translate_lines(std::vector<asmtree_node>& t_tree_nodes, ast_line_nodes const& t_lines) {
+        auto translate_line_wrapper = [this](ast_line_node const &x) { return translate_line(*x); };
 
-    [[nodiscard]] AsmTree::AsmTreeNode* translate_instruction_node(AstLineNode const& node) const;
-    [[nodiscard]] static AsmTree::AsmTreeNode* translate_directive_node(AstLineNode const& node) ;
-    [[nodiscard]] static AsmTree::AsmTreeNode* translate_label_node(AstLineNode const& node) ;
+        std::transform(t_lines.begin(), t_lines.end(),
+                       std::back_inserter(t_tree_nodes),
+                       translate_line_wrapper);
+    }
+
+    /**
+     * \brief Translate the given line node to the corresponding asmtree node.
+     * \param t_line_node a ast line node
+     * \return the resulting asmtree node
+     */
+    asmtree_node translate_line(AstLineNode const& t_line_node) const;
+
+    /**
+     * \brief Decode the given ast instruction to an asmtree instruction node
+     * \param instruction the given ast instruction
+     * \return a new pointer to the created asmtree instruction node
+     */
+    AsmTree::Instruction::AsmTreeInstructionNode* decode_instruction(AstInstruction const& instruction) const;
+
+
+    /**
+     * \brief Determine the addresses of the labels in m_labels and store them in m_label_map;
+     * \param asmtree_nodes the asmtree nodes to scan for label addresses.
+     */
+    void number_labels(std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> const& asmtree_nodes);
+
+    /**
+     * \brief Translate the given ast line node to an asmtree node.
+     * \param node the ast line node to translate.
+     * \return a new pointer to the created instruction node.
+     */
+    [[nodiscard]] inline AsmTree::AsmTreeNode* translate_instruction_node(AstInstruction const& node) const {
+        return decode_instruction(node);
+    }
+
+    /**
+     * \brief Translate the given ast line node to an asmtree node
+     * \param node the ast line node representing a directive
+     * \return a new pointer to the created instruction node.
+     */
+    [[nodiscard]] static AsmTree::AsmTreeNode* translate_directive_node(AstDirective const& node);
+
+    /**
+     * \brief Translate the given ast line node to an asmtree node
+     * \param node the ast line node representing a label
+     * \return a new pointer to the created instruction node.
+     */
+    [[nodiscard]] static AsmTree::AsmTreeNode* translate_label_node(AstLabel const& node);
 
 public:
     [[nodiscard]]

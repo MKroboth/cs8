@@ -21,31 +21,62 @@ void AsmTreeTransformer::label_scan(AsmTreeTransformer::ast_line_nodes const &t_
     auto is_label = [](ast_line_node const &x) { return x->get_type() == AstNodeType::Label; };
     auto get_label_name = [](ast_line_node const &x) { return dynamic_cast<AstLabel *>(x.get())->get_name(); };
 
-    auto label_nodes = std::views::filter(t_lines, is_label);
-
+    constexpr bool supports_ranges =
+#if defined(__cpp_lib_ranges)
+        true
+#else
+        false
+#endif
+        ;
     m_labels.clear();
 
-    std::transform(label_nodes.begin(), label_nodes.end(),
-                   std::inserter(m_labels, m_labels.end()),
-                   get_label_name);
+    if constexpr(supports_ranges) {
+        auto label_names = t_lines | std::views::filter(is_label) | std::views::transform(get_label_name);
+
+        std::move(label_names.begin(), label_names.end(),
+                  std::inserter(m_labels, m_labels.end()));
+    } else {
+        for (auto const& nd: t_lines) {
+            if(is_label(nd)) {
+                m_labels.insert(get_label_name(nd));
+            }
+        }
+    }
+
 }
 
-void AsmTreeTransformer::translate_lines(
-        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &t_tree_nodes,
-        std::list<std::unique_ptr<AstLineNode>> const &t_lines) {
-    auto translate_line_wrapper = [this](ast_line_node const &x) { return translate_line(*x); };
-
-    std::transform(t_lines.begin(), t_lines.end(),
-                   std::back_inserter(t_tree_nodes),
-                   translate_line_wrapper);
-}
 
 std::unique_ptr<AsmTree::AsmTreeNode>
 AsmTreeTransformer::translate_line(AstLineNode const &node) const {
-    std::map<AstNodeType, std::function<AsmTree::AsmTreeNode *(AstLineNode const &)>> const translators{
-            {AstNodeType::Instruction, [this](AstLineNode const &x) { return this->translate_instruction_node(x); }},
-            {AstNodeType::Directive,   translate_directive_node},
-            {AstNodeType::Label,       translate_label_node}
+    using translator_function = std::function<AsmTree::AsmTreeNode *(AstLineNode const &)>;
+
+    auto as_ast_instruction_node =  [](AstLineNode const& x) {
+        return dynamic_cast<AstInstruction const&>(x);
+    };
+    auto as_ast_label_node = [](AstLineNode const& x) {
+        return dynamic_cast<AstLabel const&>(x);
+    };
+    auto as_ast_directive_node = [](AstLineNode const& x) {
+        return dynamic_cast<AstDirective const&>(x);
+    };
+
+    auto const translate_instruction_f =
+            [&](AstLineNode const& x) {
+        return this->translate_instruction_node(as_ast_instruction_node(x));
+    };
+    auto const translate_directive_f =
+            [&](AstLineNode const& x) {
+        return translate_directive_node(as_ast_directive_node(x));
+    };
+    auto const translate_label_f =
+            [&](AstLineNode const& x) {
+        return translate_label_node(as_ast_label_node(x));
+    };
+
+    std::map<AstNodeType, translator_function> const translators {
+            {AstNodeType::Instruction, translate_instruction_f},
+            {AstNodeType::Directive,   translate_directive_f},
+            {AstNodeType::Label,       translate_label_f}
     };
 
     if (translators.contains(node.get_type())) {
@@ -55,10 +86,6 @@ AsmTreeTransformer::translate_line(AstLineNode const &node) const {
     }
 }
 
-AsmTree::AsmTreeNode *
-AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) const {
-    return decode_instruction(dynamic_cast<AstInstruction const &>(node));
-}
 
 
 namespace translate_instruction {
@@ -380,8 +407,7 @@ AsmTreeTransformer::decode_instruction(AstInstruction const &instruction) const 
     std::function<translate_instruction::instruction_node *(translate_instruction::labels const&,
                                                             AstInstruction const &)>;
 
-    static std::map<std::string, instruction_transformer> const
-            instruction_builders{
+    static std::map<std::string, instruction_transformer> const instruction_builders {
             {"limm",   translate_instruction::limm},
             {"lmem",   translate_instruction::lmem},
             {"smem",   translate_instruction::smem},
@@ -410,7 +436,7 @@ AsmTreeTransformer::decode_instruction(AstInstruction const &instruction) const 
 }
 
 void AsmTreeTransformer::number_labels(
-        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> &nodes) {
+        std::vector<std::unique_ptr<AsmTree::AsmTreeNode>> const& nodes) {
 
     std::unordered_map<section_name, size_t> sections = {{"flat", 0}};
     section_name current_section = "flat";
@@ -418,7 +444,7 @@ void AsmTreeTransformer::number_labels(
 
     std::unordered_map<std::string, size_t> positions;
 
-    for (auto &node : nodes) {
+    for (auto const &node : nodes) {
         switch (node->get_type()) {
 
             case AsmTree::AsmTreeType::Label: {
@@ -519,9 +545,7 @@ void AsmTreeTransformer::number_labels(
 
 }
 
-AsmTree::AsmTreeNode *AsmTreeTransformer::translate_directive_node(const AstLineNode &node) {
-    auto const &input = dynamic_cast<AstDirective const &>(node);
-
+AsmTree::AsmTreeNode *AsmTreeTransformer::translate_directive_node(AstDirective const& input) {
     auto *directive = new AsmTree::AsmTreeDirective;
     directive->name = input.get_name();
 
@@ -556,8 +580,7 @@ AsmTree::AsmTreeNode *AsmTreeTransformer::translate_directive_node(const AstLine
     return directive;
 }
 
-AsmTree::AsmTreeNode *AsmTreeTransformer::translate_label_node(const AstLineNode &node) {
-    auto const &input = dynamic_cast<AstLabel const &>(node);
+AsmTree::AsmTreeNode *AsmTreeTransformer::translate_label_node(AstLabel const& input) {
     auto *label = new AsmTree::AsmTreeLabel;
     label->name = input.get_name();
     label->position = std::nullopt;
