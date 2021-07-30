@@ -128,6 +128,10 @@ private:
     [[nodiscard]] static AsmTree::AsmTreeNode* translate_label_node(AstLabel const& node);
 
 public:
+    /**
+     * \brief Transform the given Ast into an AsmTree.
+     * \return the resulting AsmTree
+     */
     [[nodiscard]]
     AsmTree::AsmTree transform(AstRootNode const&);
 
