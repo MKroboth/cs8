@@ -41,7 +41,7 @@ void AsmTreeTransformer::translate_lines(
 }
 
 std::unique_ptr<AsmTree::AsmTreeNode>
-AsmTreeTransformer::translate_line(AstLineNode const &node) {
+AsmTreeTransformer::translate_line(AstLineNode const &node) const {
     std::map<AstNodeType, std::function<AsmTree::AsmTreeNode *(AstLineNode const &)>> const translators{
             {AstNodeType::Instruction, [this](AstLineNode const &x) { return this->translate_instruction_node(x); }},
             {AstNodeType::Directive,   translate_directive_node},
@@ -56,9 +56,8 @@ AsmTreeTransformer::translate_line(AstLineNode const &node) {
 }
 
 AsmTree::AsmTreeNode *
-AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) {
-    auto const &input = dynamic_cast<AstInstruction const &>(node);
-    return decode_instruction(input);
+AsmTreeTransformer::translate_instruction_node(AstLineNode const &node) const {
+    return decode_instruction(dynamic_cast<AstInstruction const &>(node));
 }
 
 
@@ -66,13 +65,27 @@ namespace translate_instruction {
     using labels = AsmTreeTransformer::labels;
     using instruction_node = AsmTreeTransformer::asmtree_instruction_node;
 
+    /**
+     * \brief Check the given instruction for correct parameter size.
+     * \param instruction a instruction
+     * \param instruction_name the instructions mnemonic
+     * \param required_parameters the number of parameters required.
+     * \throws InvalidInstructionParameterCountError when the parameter size requirement is violated.
+     */
+    inline void require_instruction_parameter_size(AstInstruction const& instruction,
+                                                             std::string_view instruction_name,
+                                                             size_t required_parameters) {
+        size_t instruction_size = instruction.get_parameters().size();
+        if (instruction_size != required_parameters) {
+            throw InvalidInstructionParameterCountError(instruction_name, required_parameters, instruction_size);
+        }
+    }
 
-    instruction_node *limm(labels &labels, AstInstruction const &instruction) {
+
+    instruction_node *limm(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeLoadImmediateInstruction;
-        if (instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("limm", 1,
-                                                        instruction.get_parameters().size());
 
+        require_instruction_parameter_size(instruction, "limm", 1);
 
         auto const &parameter0 = instruction.get_parameter(0);
 
@@ -102,12 +115,10 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *lmem(labels &labels, AstInstruction const &instruction) {
+    instruction_node *lmem(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeLoadDirectInstruction;
-        if (instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("lmem", 1,
-                                                        instruction.get_parameters().size());
 
+        require_instruction_parameter_size(instruction, "lmem", 1);
 
         auto const &parameter0 = instruction.get_parameter(0);
 
@@ -137,12 +148,10 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *smem(labels &labels, AstInstruction const &instruction) {
+    instruction_node *smem(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeStoreDirectInstruction;
-        if (instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("smem", 1,
-                                                        instruction.get_parameters().size());
 
+        require_instruction_parameter_size(instruction, "smem", 1);
 
         auto const &parameter0 = instruction.get_parameter(0);
 
@@ -172,72 +181,56 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *lidx(labels &labels, AstInstruction const &instruction) {
+    instruction_node *lidx(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeLoadIndexedInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("lidx", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "lidx", 0);
 
         return ptr;
     }
 
-    instruction_node *sidx(labels &labels, AstInstruction const &instruction) {
+    instruction_node *sidx(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeStoreIndexedInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("sidx", 0,
-                                                        instruction.get_parameters().size());
-
+        require_instruction_parameter_size(instruction, "sidx", 0);
         return ptr;
     }
 
-    instruction_node *add(labels &labels, AstInstruction const &instruction) {
+    instruction_node *add(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeAddInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("add", 0,
-                                                        instruction.get_parameters().size());
-
+        require_instruction_parameter_size(instruction, "add", 0);
         return ptr;
     }
 
-    instruction_node *sub(labels &labels, AstInstruction const &instruction) {
+    instruction_node *sub(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeSubtractInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("sub", 0,
-                                                        instruction.get_parameters().size());
-
+        require_instruction_parameter_size(instruction, "sub", 0);
         return ptr;
     }
 
-    instruction_node *mul(labels &labels, AstInstruction const &instruction) {
+    instruction_node *mul(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeMultiplyInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("mul", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "mul", 0);
 
         return ptr;
     }
 
-    instruction_node *divmod(labels &labels, AstInstruction const &instruction) {
+    instruction_node *divmod(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeDivideModuloInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("divmod", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "divmod", 0);
 
         return ptr;
     }
 
-    instruction_node *psh0(labels &labels, AstInstruction const &instruction) {
+    instruction_node *psh0(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreePush0Instruction;
 
-        if (!instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("psh0", 1,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "psh0", 1);
+
         auto const &parameter0 = instruction.get_parameter(0);
         switch (parameter0->get_type()) {
             case AstNodeType::RegisterParameter: {
@@ -253,12 +246,11 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *psh1(labels &labels, AstInstruction const &instruction) {
+    instruction_node *psh1(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreePush1Instruction;
 
-        if (!instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("psh1", 1,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "psh1", 1);
+
         auto const &parameter0 = instruction.get_parameter(0);
         switch (parameter0->get_type()) {
             case AstNodeType::RegisterParameter: {
@@ -274,12 +266,11 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *pop0(labels &labels, AstInstruction const &instruction) {
+    instruction_node *pop0(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreePop0Instruction;
 
-        if (!instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("pop0", 1,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "pop0", 1);
+
         auto const &parameter0 = instruction.get_parameter(0);
         switch (parameter0->get_type()) {
             case AstNodeType::RegisterParameter: {
@@ -295,12 +286,11 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *pop1(labels &labels, AstInstruction const &instruction) {
+    instruction_node *pop1(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreePop1Instruction;
 
-        if (!instruction.get_parameters().size() != 1)
-            throw InvalidInstructionParameterCountError("pop1", 1,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "pop1", 1);
+
         auto const &parameter0 = instruction.get_parameter(0);
         switch (parameter0->get_type()) {
             case AstNodeType::RegisterParameter: {
@@ -316,52 +306,42 @@ namespace translate_instruction {
         return ptr;
     }
 
-    instruction_node *nand(labels &labels, AstInstruction const &instruction) {
+    instruction_node *nand(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeNandInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("nand", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "nand", 0);
 
         return ptr;
     }
 
-    instruction_node *jle(labels &labels, AstInstruction const &instruction) {
+    instruction_node *jle(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeJumpIfLessOrEqualInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("jle", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "jle", 0);
 
         return ptr;
     }
 
-    instruction_node *jmp(labels &labels, AstInstruction const &instruction) {
+    instruction_node *jmp(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeJumpInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("jmp", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "jmp", 0);
 
         return ptr;
     }
 
-    instruction_node *rtm(labels &labels, AstInstruction const &instruction) {
+    instruction_node *rtm(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeRestoreTMPInstruction;
 
-        if (!instruction.get_parameters().empty())
-            throw InvalidInstructionParameterCountError("rtm", 0,
-                                                        instruction.get_parameters().size());
+        require_instruction_parameter_size(instruction, "rtm", 0);
 
         return ptr;
     }
 
-    instruction_node *tr(labels &labels, AstInstruction const &instruction) {
+    instruction_node *tr(labels const& labels, AstInstruction const &instruction) {
         auto ptr = new AsmTree::Instruction::AsmTreeTransferRegisterInstruction;
-        if (instruction.get_parameters().size() != 2)
-            throw InvalidInstructionParameterCountError("tr", 2,
-                                                        instruction.get_parameters().size());
 
+        require_instruction_parameter_size(instruction, "tr", 2);
 
         auto const &parameter0 = instruction.get_parameter(0);
         auto const &parameter1 = instruction.get_parameter(1);
@@ -395,9 +375,9 @@ namespace translate_instruction {
 }
 
 AsmTree::Instruction::AsmTreeInstructionNode *
-AsmTreeTransformer::decode_instruction(AstInstruction const &instruction) {
+AsmTreeTransformer::decode_instruction(AstInstruction const &instruction) const {
     using instruction_transformer =
-    std::function<translate_instruction::instruction_node *(translate_instruction::labels &,
+    std::function<translate_instruction::instruction_node *(translate_instruction::labels const&,
                                                             AstInstruction const &)>;
 
     static std::map<std::string, instruction_transformer> const

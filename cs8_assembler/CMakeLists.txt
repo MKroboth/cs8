@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_package(BISON REQUIRED)
 find_package(FLEX REQUIRED)
+find_package(fmt REQUIRED)
 
 bison_target(CS8Parser src/cs8_asm.y ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp
         COMPILE_FLAGS -Wcounterexamples
@@ -21,7 +22,7 @@ add_library(CS8_AssemblerLibrary
         src/Ast.cpp src/Ast.h src/cs8_parser.h src/MacroExpander.cpp src/MacroExpander.h src/AsmTree.cpp src/AsmTree.h src/AsmTreeTransformer.cpp src/AsmTreeTransformer.h src/asm_tree_emitter.cxx src/asm_tree_emitter.hxx src/CS8_Assembler.hxx src/cs8_assembler.cxx)
 target_include_directories(CS8_AssemblerLibrary PUBLIC SYSTEM dependencies/ELFIO/)
 target_include_directories(CS8_AssemblerLibrary PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(CS8_AssemblerLibrary PUBLIC ${FLEX_LIBRARIES})
+target_link_libraries(CS8_AssemblerLibrary PUBLIC ${FLEX_LIBRARIES} fmt::fmt)
 
 add_executable(CS8_Assembler src/main.cpp)
 target_link_libraries(CS8_Assembler CS8_AssemblerLibrary)
