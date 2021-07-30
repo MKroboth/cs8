@@ -25,10 +25,12 @@ void initialize_memory(std::filesystem::path const& file, EmulatedMemory::Buffer
     reader.load(file);
 
     for(auto const segment : reader.segments) {
-        auto const* data = segment->get_data();
-        auto const size = segment->get_memory_size();
-        auto const address = segment->get_virtual_address();
-        std::copy(data, data+size, buffer.begin()+address);
+        if(segment->get_type() == PT_LOAD) {
+            auto const *data = segment->get_data();
+            auto const size = segment->get_memory_size();
+            auto const address = segment->get_virtual_address();
+            std::copy(data, data + size, buffer.begin() + address);
+        }
     }
 }
 
